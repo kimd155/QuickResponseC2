@@ -57,8 +57,7 @@ def main():
                     output = execute_command(command)
                     send_output(output, result_index)
                     result_index += 1
-
-                command_index += 1
+                    command_index += 1
             else:
                 time.sleep(POLL_INTERVAL)
         except Exception:
@@ -67,5 +66,5 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except:
-        pass 
+    except Exception:
+        pass
