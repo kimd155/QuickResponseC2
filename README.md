@@ -105,7 +105,7 @@ https://github.com/user-attachments/assets/382e9350-d650-44e5-b8ef-b43ec90b315d
 ## TODO & Contribution
 
 - [x] Generate a Template for the Implant
-- [ ] Compile the implant as an .exe automatically
+- [x] Compile the implant as an .exe automatically
 - [x] Save the generated QR Code as bytes in a variable instead of a file - VICTIM Side
 - [ ] Add an obfuscation on the commands decoded from the QR Codes automatically
 

